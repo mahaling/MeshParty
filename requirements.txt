@@ -1,12 +1,12 @@
 plyfile
 h5py
 numpy
-scipy
 sklearn
 networkx
 multiwrapper
 trimesh
 -e git+https://github.com/seung-lab/cloud-volume.git@graphene#egg=cloud-volume
+-e git+https://github.com/fcollman/scipy#egg=scipy
 pyassimp
 pymeshfix
 vtk

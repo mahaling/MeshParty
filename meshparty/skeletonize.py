@@ -189,6 +189,10 @@ def skeletonize_components(mesh, soma_pt=None, soma_thresh=10000, invalidation_d
                                                                return_labels=True)
     comp_labels, comp_counts = np.unique(labels, return_counts=True)
 
+    indices = [i for i, cc in enumerate(comp_counts) if cc > 100]
+    new_comp_labels = comp_labels[indices]
+    new_comp_counts = comp_counts[indices]
+
     # variables to collect the paths, roots and path lengths
     all_paths = []
     roots = []
@@ -202,30 +206,29 @@ def skeletonize_components(mesh, soma_pt=None, soma_thresh=10000, invalidation_d
         is_soma_pt = None
         soma_d = None
     # loop over the components
-    for k in trange(n_components):
-        if comp_counts[k] > cc_vertex_thresh:
+    for k in trange(len(new_comp_labels)):
+        #if comp_counts[k] > cc_vertex_thresh:
+        # find the root using a soma position if you have it
+        # it will fall back to a heuristic if the soma
+        # is too far away for this component
+        root, root_ds, pred, valid = setup_root_new(mesh,
+                                                    is_soma_pt,
+                                                    soma_d,
+                                                    labels == new_comp_labels[k])
 
-            # find the root using a soma position if you have it
-            # it will fall back to a heuristic if the soma
-            # is too far away for this component
-            root, root_ds, pred, valid = setup_root_new(mesh,
-                                                        is_soma_pt,
-                                                        soma_d,
-                                                        labels == k)
+        # run teasar on this component
+        paths, path_lengths = mesh_teasar(mesh,
+                                            root=root,
+                                            root_ds=root_ds,
+                                            root_pred=pred,
+                                            valid=valid,
+                                            invalidation_d=invalidation_d)
 
-            # run teasar on this component
-            paths, path_lengths = mesh_teasar(mesh,
-                                              root=root,
-                                              root_ds=root_ds,
-                                              root_pred=pred,
-                                              valid=valid,
-                                              invalidation_d=invalidation_d)
-  
-            if len(path_lengths) > 0:
-                # collect the results in lists
-                tot_path_lengths.append(path_lengths)
-                all_paths.append(paths)
-                roots.append(root)
+        if len(path_lengths) > 0:
+            # collect the results in lists
+            tot_path_lengths.append(path_lengths)
+            all_paths.append(paths)
+            roots.append(root)
             
 
     return all_paths, roots, tot_path_lengths
@@ -237,6 +240,7 @@ def setup_root_new(mesh, is_soma_pt=None, soma_d=None, is_valid=None):
     else:
         valid = np.ones(len(mesh.vertices), np.bool)
     root = None
+    
     # soma mode
     if is_soma_pt is not None:
         # pick the first soma as root
@@ -300,7 +304,7 @@ def setup_root(mesh, soma_pt=None, soma_thresh=7500, valid_inds=None):
                 root, target, pred, dm, root_ds = utils.find_far_points(mesh)
     if root is None:
         # there is no soma close, so use far point heuristic
-        root, target, pred, dm, root_ds = find_far_points(mesh)
+        root, target, pred, dm, root_ds = utils.find_far_points(mesh)
     valid[root] = False
 
     return root, root_ds, pred, valid
